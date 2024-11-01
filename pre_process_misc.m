@@ -3,7 +3,7 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'rosbag2_2024_10_21-09_18_07';
+dataset_name = 'test1';
 
 path_to_folder = horzcat('datasets/raw/', dataset_name);
 bag = ros2bagreader(path_to_folder);
@@ -11,39 +11,41 @@ bag = ros2bagreader(path_to_folder);
 %% Get imu data and convert to csv
 imu_sel = select(bag,"Topic","/imu");
 
-imu_timestamp = imu_sel.MessageList.Time;
+imu_timestamp = imu_sel.MessageList.Time * 1000;
 imu_msg = readMessages(imu_sel);
 
 % Pre allocate imu data array
-% [timestamp_s, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_x, quat_y, quat_z, quat_w]
+% [timestamp_ms, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_w, quat_z, quat_y, quat_z]
 imu_data = zeros(size(imu_timestamp,1),11);
 imu_data(:,1) = imu_timestamp;
 for ii = 1:size(imu_data,1)
     imu_data(ii,2:4) = [imu_msg{ii,1}.angular_velocity.x, imu_msg{ii,1}.angular_velocity.y, imu_msg{ii,1}.angular_velocity.z];
     imu_data(ii,5:7) = [imu_msg{ii,1}.linear_acceleration.x, imu_msg{ii,1}.linear_acceleration.y, imu_msg{ii,1}.linear_acceleration.z];
-    imu_data(ii,8:11) = [imu_msg{ii,1}.orientation.x, imu_msg{ii,1}.orientation.y, imu_msg{ii,1}.orientation.z, imu_msg{ii,1}.orientation.w];
+    imu_data(ii,8:11) = [imu_msg{ii,1}.orientation.w, imu_msg{ii,1}.orientation.x, imu_msg{ii,1}.orientation.y, imu_msg{ii,1}.orientation.z];
 end
 
 
 %% Get pose data
 tf_sel = select(bag,"Topic","/tf");
 
-tf_timestamp = tf_sel.MessageList.Time;
+tf_timestamp = tf_sel.MessageList.Time * 1000;
 tf_msg = readMessages(tf_sel);
 
-% Only extract certain transformation include world->base, base->lidar,
-% base->imu and base->left_cam
+% Only extract certain transformation include world->base, base->mast_mount,
+% mast_mount->sensor_mount, sensor_mount->lidar, base->imu and base->left_cam
 % Note, the world->base will have translational origin of the initial pos
 % instead of simulation origin
 
 % All transformation file are as follow
-% [timestamp_s, trans_x, trans_y, trans_z, quat_x, quat_y, quat_z, quat_w]
+% [timestamp_ms, trans_x, trans_y, trans_z, quat_w, quat_x, quat_y, quat_z]
 
 tf_base_world = zeros(size(tf_timestamp,1), 8);
 tf_base_world(:,1) = tf_timestamp;
 tf_imu_base = tf_base_world;
 tf_lcam_base = tf_base_world;
-tf_lidar_base = tf_base_world;
+tf_lidar_sensor_mount = tf_base_world;
+tf_sensor_mount_mast_mount = tf_base_world;
+tf_mast_mount_base = tf_base_world;
 
 % Do mapping of link name to their index in transform tree
 for ii = 1:size(tf_msg{1,1}.transforms,1)
@@ -56,29 +58,43 @@ for ii = 1:size(tf_msg{1,1}.transforms,1)
         lcam_ind = ii;
     elseif strcmp(link_name, 'lidar_link')
         lidar_ind = ii;
+    elseif strcmp(link_name, 'mast_mount_link')
+        mast_mount_ind = ii;
+    elseif strcmp(link_name, 'sensor_mount_link')
+        sensor_mount_ind = ii;
     end
 end
 
 for ii = 1:size(tf_timestamp,1)
     tf_base_world(ii,2:end) = [tf_msg{ii,1}.transforms(base_ind).transform.translation.x, tf_msg{ii,1}.transforms(base_ind).transform.translation.y,...
-        tf_msg{ii,1}.transforms(base_ind).transform.translation.z, tf_msg{ii,1}.transforms(base_ind).transform.rotation.x, ...
-        tf_msg{ii,1}.transforms(base_ind).transform.rotation.y, tf_msg{ii,1}.transforms(base_ind).transform.rotation.z, ...
-        tf_msg{ii,1}.transforms(base_ind).transform.rotation.w];
+        tf_msg{ii,1}.transforms(base_ind).transform.translation.z, tf_msg{ii,1}.transforms(base_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(base_ind).transform.rotation.x, tf_msg{ii,1}.transforms(base_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(base_ind).transform.rotation.z];
 
     tf_imu_base(ii,2:end) = [tf_msg{ii,1}.transforms(imu_ind).transform.translation.x, tf_msg{ii,1}.transforms(imu_ind).transform.translation.y,...
-        tf_msg{ii,1}.transforms(imu_ind).transform.translation.z, tf_msg{ii,1}.transforms(imu_ind).transform.rotation.x, ...
-        tf_msg{ii,1}.transforms(imu_ind).transform.rotation.y, tf_msg{ii,1}.transforms(imu_ind).transform.rotation.z, ...
-        tf_msg{ii,1}.transforms(imu_ind).transform.rotation.w];
+        tf_msg{ii,1}.transforms(imu_ind).transform.translation.z, tf_msg{ii,1}.transforms(imu_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(imu_ind).transform.rotation.x, tf_msg{ii,1}.transforms(imu_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(imu_ind).transform.rotation.z];
 
     tf_lcam_base(ii,2:end) = [tf_msg{ii,1}.transforms(lcam_ind).transform.translation.x, tf_msg{ii,1}.transforms(lcam_ind).transform.translation.y,...
-        tf_msg{ii,1}.transforms(lcam_ind).transform.translation.z, tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.x, ...
-        tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.y, tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.z, ...
-        tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.w];
+        tf_msg{ii,1}.transforms(lcam_ind).transform.translation.z, tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.x, tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.z];
         
-    tf_lidar_base(ii,2:end) = [tf_msg{ii,1}.transforms(lidar_ind).transform.translation.x, tf_msg{ii,1}.transforms(lidar_ind).transform.translation.y,...
-        tf_msg{ii,1}.transforms(lidar_ind).transform.translation.z, tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.x, ...
-        tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.y, tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.z, ...
-        tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.w];
+    tf_lidar_sensor_mount(ii,2:end) = [tf_msg{ii,1}.transforms(lidar_ind).transform.translation.x, tf_msg{ii,1}.transforms(lidar_ind).transform.translation.y,...
+        tf_msg{ii,1}.transforms(lidar_ind).transform.translation.z, tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.x, tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.z];
+
+    tf_mast_mount_base(ii,2:end) = [tf_msg{ii,1}.transforms(mast_mount_ind).transform.translation.x, tf_msg{ii,1}.transforms(mast_mount_ind).transform.translation.y,...
+        tf_msg{ii,1}.transforms(mast_mount_ind).transform.translation.z, tf_msg{ii,1}.transforms(mast_mount_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(mast_mount_ind).transform.rotation.x, tf_msg{ii,1}.transforms(mast_mount_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(mast_mount_ind).transform.rotation.z];
+
+    tf_sensor_mount_mast_mount(ii,2:end) = [tf_msg{ii,1}.transforms(sensor_mount_ind).transform.translation.x, tf_msg{ii,1}.transforms(sensor_mount_ind).transform.translation.y,...
+        tf_msg{ii,1}.transforms(sensor_mount_ind).transform.translation.z, tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.x, tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.z];
 end
 
 % Subtract world->base translation with initial pos 
@@ -87,7 +103,7 @@ tf_base_world(:,2:4) = tf_base_world(:,2:4) - tf_base_world(1,2:4);
 %% Pre process point cloud
 cloud_sel = select(bag,"Topic","/cloud");
 
-cloud_timestamp = cloud_sel.MessageList.Time;
+cloud_timestamp = cloud_sel.MessageList.Time * 1000;
 cloud_msg = readMessages(cloud_sel);
 
 cloud_data = cell(size(cloud_timestamp,1),1);
@@ -113,5 +129,89 @@ for ii = 1:size(cloud_timestamp,1)
             cur_data(jj * point_step + 12)],"single");
     end
     cloud_data{ii,1} = point_loc;
+    
 end
 
+%% Pre process images
+img_sel = select(bag,"Topic","/left_image");
+
+img_timestamp = img_sel.MessageList.Time * 1000;
+img_msg = readMessages(img_sel);
+
+img_data = cell(size(img_timestamp,1),1);
+
+for ii = 1:size(img_timestamp,1)
+    cur_image = rosReadImage(img_msg{ii,1},"Encoding",img_msg{ii,1}.encoding);
+    
+    img_data{ii,1} = cur_image;
+end
+
+%% Write datas from ROS bag to cvs types
+% Output dir structure
+%   datasets/preprocess/<dataset_name>/
+%       |_  imu.csv
+%       |_  base_world_tf.csv
+%       |_  lidar_base_tf.csv
+%       |_  imu_base_tf.csv
+%       |_  lcam_base_tf.csv
+%       |_  cloud/
+%       |       |_ <timestamp>.csv
+%       |       |_      ...
+%       |_  image/
+%               |_ <timestamp>.png
+%               |_      ...       
+pre_process_output_dir = horzcat('datasets/preprocess/', dataset_name);
+[~,~] = rmdir(pre_process_output_dir,'s');
+mkdir(pre_process_output_dir)
+
+%% IMU file
+%  imu.csv
+%       |_  timestamp, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_x, quat_y, quat_z, quat_w
+imu_filename = horzcat(pre_process_output_dir, '/imu.csv');
+writematrix(imu_data,imu_filename)
+
+%% TF files
+%   <child_parent>_tf.csv
+%       |_ timestamp, trans_x, trans_y, trans_z, quat_x, quat_y, quat_z, quat_w
+
+world_base_filename = horzcat(pre_process_output_dir, '/base_world_tf.csv');
+writematrix(tf_base_world, world_base_filename)
+
+imu_base_filename = horzcat(pre_process_output_dir, '/imu_base_tf.csv');
+writematrix(tf_imu_base, imu_base_filename)
+
+mast_mount_base_filename = horzcat(pre_process_output_dir,'/mast_mount_base_tf.csv');
+writematrix(tf_mast_mount_base, mast_mount_base_filename)
+
+sensor_mount_mast_mount_filename = horzcat(pre_process_output_dir,'/sensor_mount_mast_mount_tf.csv');
+writematrix(tf_sensor_mount_mast_mount, sensor_mount_mast_mount_filename)
+
+lidar_sensor_mount_filename = horzcat(pre_process_output_dir, '/lidar_sensor_mount_tf.csv');
+writematrix(tf_lidar_sensor_mount, lidar_sensor_mount_filename)
+
+lcam_base_filename = horzcat(pre_process_output_dir,'/lcam_base_tf.csv');
+writematrix(tf_lcam_base, lcam_base_filename)
+
+%% Cloud data
+%   cloud/<timestamp_ms>.csv
+%       |_ x, y, z
+%       |_  ...
+
+cloud_path = horzcat(pre_process_output_dir, '/cloud');
+mkdir(cloud_path)
+
+for ii = 1:size(cloud_data,1)
+    cloud_name = sprintf("%s/%d.csv",cloud_path, round(cloud_timestamp(ii)));
+    writematrix(cloud_data{ii,1}, cloud_name)
+end
+
+%% Image data
+%   image/<timestamp_ms>.png
+
+img_path = horzcat(pre_process_output_dir, '/image');
+mkdir(img_path)
+
+parfor ii = 1:size(img_data,1)
+    img_name = sprintf("%s/%d.png",img_path, round(img_timestamp(ii)));
+    imwrite(img_data{ii,1}, img_name)
+end
