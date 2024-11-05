@@ -174,6 +174,7 @@ end
 %% Write datas from ROS bag to cvs types
 % Output dir structure
 %   datasets/preprocess/<dataset_name>/
+%       |_  timings.csv
 %       |_  imu.csv
 %       |_  odom.csv
 %       |_  base_world_tf.csv
@@ -190,9 +191,20 @@ pre_process_output_dir = horzcat('datasets/preprocess/', dataset_name);
 [~,~] = rmdir(pre_process_output_dir,'s');
 mkdir(pre_process_output_dir)
 
+%% Timing file
+%  timing.csv
+%       |_  timestamp_ms, lidar_avail, img_avail
+timing_data = zeros(size(imu_data,1),3);
+timing_data(:,1) = imu_data(:,1);
+timing_data(:,2) = ismember(imu_data(:,1),cloud_timestamps);
+timing_data(:,3) = ismember(imu_data(:,1),img_timestamps);
+
+timing_filename = horzcat(pre_process_output_dir, '/timing.csv');
+writematrix(timing_data, timing_filename)
+
 %% IMU file
 %  imu.csv
-%       |_  timestamp, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_x, quat_y, quat_z, quat_w
+%       |_  timestamp_ms, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_x, quat_y, quat_z, quat_w
 imu_filename = horzcat(pre_process_output_dir, '/imu.csv');
 writematrix(imu_data,imu_filename)
 
@@ -204,7 +216,7 @@ writematrix(odom_data,odom_filename)
 
 %% TF files
 %   <child_parent>_tf.csv
-%       |_ timestamp, trans_x, trans_y, trans_z, quat_x, quat_y, quat_z, quat_w
+%       |_ timestamp_ms, trans_x, trans_y, trans_z, quat_x, quat_y, quat_z, quat_w
 
 world_base_filename = horzcat(pre_process_output_dir, '/base_world_tf.csv');
 writematrix(tf_base_world, world_base_filename)
@@ -247,3 +259,13 @@ parfor ii = 1:size(img_data,1)
     img_name = sprintf("%s/%d.png",img_path, round(img_timestamps(ii)));
     imwrite(img_data{ii,1}, img_name)
 end
+
+avg_framerate = 1/mean(diff(img_timestamps) * 1e-3);
+video_filename = horzcat(pre_process_output_dir, '/video.avi');
+v = VideoWriter(video_filename,'Motion JPEG AVI');
+v.FrameRate = avg_framerate;
+open(v);
+for ii = 1:size(img_data,1)
+    writeVideo(v,img_data{ii,1});
+end
+close(v);
