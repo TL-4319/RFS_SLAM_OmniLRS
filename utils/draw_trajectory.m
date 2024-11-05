@@ -1,17 +1,19 @@
-function draw_trajectory (se3, traj_hist, scale, linewidth,traj_color,bool_hold)
+function draw_trajectory (se3, se3_hist, scale, linewidth,traj_color,bool_hold)
     
-    q = quaternion(quat(se3));
+    rotm = se3(1:3,1:3);
 
-    pos = transpose(trvec(se3));
+    pos = se3(1:3,4);
+
+    traj_hist = squeeze(se3_hist(1:3,4,:));
     
     % Rotate of principle axis
-    rot_x = rotatepoint(q, [1,0,0]) * scale;
-    rot_y = rotatepoint(q, [0,1,0]) * scale;
-    rot_z = rotatepoint(q, [0,0,1]) * scale;
+    rot_x = rotm * [1;0;0] * scale;
+    rot_y = rotm * [0;1;0] * scale;
+    rot_z = rotm * [0;0;1] * scale;
 
-    unit_x = horzcat (pos, pos + rot_x');
-    unit_y = horzcat (pos, pos + rot_y');
-    unit_z = horzcat (pos, pos + rot_z');
+    unit_x = horzcat (pos, pos + rot_x);
+    unit_y = horzcat (pos, pos + rot_y);
+    unit_z = horzcat (pos, pos + rot_z);
 
     %figure (fig_num)
     if bool_hold
