@@ -3,22 +3,21 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'test1';
+dataset_name = 'test1_bag';
 
 path_to_folder = horzcat('datasets/raw/', dataset_name);
 bag = ros2bagreader(path_to_folder);
 
 %% Get imu data and convert to csv
 imu_sel = select(bag,"Topic","/imu");
-
-imu_timestamp = imu_sel.MessageList.Time * 1000;
 imu_msg = readMessages(imu_sel);
 
 % Pre allocate imu data array
 % [timestamp_ms, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_w, quat_z, quat_y, quat_z]
-imu_data = zeros(size(imu_timestamp,1),11);
-imu_data(:,1) = imu_timestamp;
+imu_data = zeros(imu_sel.NumMessages,11);
+
 for ii = 1:size(imu_data,1)
+    imu_data(ii,1) = double(imu_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(imu_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
     imu_data(ii,2:4) = [imu_msg{ii,1}.angular_velocity.x, imu_msg{ii,1}.angular_velocity.y, imu_msg{ii,1}.angular_velocity.z];
     imu_data(ii,5:7) = [imu_msg{ii,1}.linear_acceleration.x, imu_msg{ii,1}.linear_acceleration.y, imu_msg{ii,1}.linear_acceleration.z];
     imu_data(ii,8:11) = [imu_msg{ii,1}.orientation.w, imu_msg{ii,1}.orientation.x, imu_msg{ii,1}.orientation.y, imu_msg{ii,1}.orientation.z];
@@ -28,7 +27,7 @@ end
 %% Get pose data
 tf_sel = select(bag,"Topic","/tf");
 
-tf_timestamp = tf_sel.MessageList.Time * 1000;
+
 tf_msg = readMessages(tf_sel);
 
 % Only extract certain transformation include world->base, base->mast_mount,
@@ -39,8 +38,7 @@ tf_msg = readMessages(tf_sel);
 % All transformation file are as follow
 % [timestamp_ms, trans_x, trans_y, trans_z, quat_w, quat_x, quat_y, quat_z]
 
-tf_base_world = zeros(size(tf_timestamp,1), 8);
-tf_base_world(:,1) = tf_timestamp;
+tf_base_world = zeros(tf_sel.NumMessages, 8);
 tf_imu_base = tf_base_world;
 tf_lcam_base = tf_base_world;
 tf_lidar_sensor_mount = tf_base_world;
@@ -65,7 +63,9 @@ for ii = 1:size(tf_msg{1,1}.transforms,1)
     end
 end
 
-for ii = 1:size(tf_timestamp,1)
+for ii = 1:tf_sel.NumMessages
+    tf_base_world(ii,1) = double(tf_msg{ii,1}.transforms(1).header.stamp.sec(1) * 1e3) + double(tf_msg{ii,1}.transforms(1).header.stamp.nanosec(1)) * 1e-6;
+
     tf_base_world(ii,2:end) = [tf_msg{ii,1}.transforms(base_ind).transform.translation.x, tf_msg{ii,1}.transforms(base_ind).transform.translation.y,...
         tf_msg{ii,1}.transforms(base_ind).transform.translation.z, tf_msg{ii,1}.transforms(base_ind).transform.rotation.w, ...
         tf_msg{ii,1}.transforms(base_ind).transform.rotation.x, tf_msg{ii,1}.transforms(base_ind).transform.rotation.y, ...
@@ -96,6 +96,11 @@ for ii = 1:size(tf_timestamp,1)
         tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.x, tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.y, ...
         tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.z];
 end
+tf_imu_base(:,1) = tf_base_world(:,1);
+tf_lcam_base(:,1) = tf_base_world(:,1);
+tf_lidar_sensor_mount(:,1) = tf_base_world(:,1);
+tf_sensor_mount_mast_mount(:,1) = tf_base_world(:,1);
+tf_mast_mount_base(:,1) = tf_base_world(:,1);
 
 % Subtract world->base translation with initial pos 
 tf_base_world(:,2:4) = tf_base_world(:,2:4) - tf_base_world(1,2:4);
@@ -103,12 +108,14 @@ tf_base_world(:,2:4) = tf_base_world(:,2:4) - tf_base_world(1,2:4);
 %% Pre process point cloud
 cloud_sel = select(bag,"Topic","/cloud");
 
-cloud_timestamp = cloud_sel.MessageList.Time * 1000;
 cloud_msg = readMessages(cloud_sel);
 
-cloud_data = cell(size(cloud_timestamp,1),1);
+cloud_data = cell(cloud_sel.NumMessages,1);
 
-for ii = 1:size(cloud_timestamp,1)
+cloud_timestamps = zeros(cloud_sel.NumMessages,1);
+
+for ii = 1:cloud_sel.NumMessages
+    cloud_timestamps(ii) = double(cloud_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(cloud_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
     cur_data = cloud_msg{ii,1}.data;
     point_step = cloud_msg{ii,1}.point_step;
     num_point = cloud_msg{ii,1}.width;
@@ -135,12 +142,16 @@ end
 %% Pre process images
 img_sel = select(bag,"Topic","/left_image");
 
-img_timestamp = img_sel.MessageList.Time * 1000;
+
 img_msg = readMessages(img_sel);
 
-img_data = cell(size(img_timestamp,1),1);
+img_data = cell(img_sel.NumMessages,1);
 
-for ii = 1:size(img_timestamp,1)
+img_timestamps = zeros(img_sel.NumMessages,1);
+
+for ii = 1:img_sel.NumMessages
+    img_timestamps(ii) = double(img_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(img_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
+
     cur_image = rosReadImage(img_msg{ii,1},"Encoding",img_msg{ii,1}.encoding);
     
     img_data{ii,1} = cur_image;
@@ -201,7 +212,7 @@ cloud_path = horzcat(pre_process_output_dir, '/cloud');
 mkdir(cloud_path)
 
 for ii = 1:size(cloud_data,1)
-    cloud_name = sprintf("%s/%d.csv",cloud_path, round(cloud_timestamp(ii)));
+    cloud_name = sprintf("%s/%d.csv",cloud_path, round(cloud_timestamps(ii)));
     writematrix(cloud_data{ii,1}, cloud_name)
 end
 
@@ -212,6 +223,6 @@ img_path = horzcat(pre_process_output_dir, '/image');
 mkdir(img_path)
 
 parfor ii = 1:size(img_data,1)
-    img_name = sprintf("%s/%d.png",img_path, round(img_timestamp(ii)));
+    img_name = sprintf("%s/%d.png",img_path, round(img_timestamps(ii)));
     imwrite(img_data{ii,1}, img_name)
 end
