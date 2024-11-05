@@ -105,6 +105,20 @@ tf_mast_mount_base(:,1) = tf_base_world(:,1);
 % Subtract world->base translation with initial pos 
 tf_base_world(:,2:4) = tf_base_world(:,2:4) - tf_base_world(1,2:4);
 
+%% Pre process odom messages
+odom_sel = select(bag,"Topic","/odom");
+odom_msg = readMessages(odom_sel);
+
+% Pre allocate imu data array
+% [timestamp_ms, ang_x, ang_y, ang_z, linear_x, linear_y, linear_z]
+odom_data = zeros(odom_sel.NumMessages,7);
+
+for ii = 1:size(odom_data,1)
+    odom_data(ii,1) = double(odom_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(odom_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
+    odom_data(ii,2:4) = [odom_msg{ii,1}.twist.twist.angular.x, odom_msg{ii,1}.twist.twist.angular.y odom_msg{ii,1}.twist.twist.angular.z];
+    odom_data(ii,5:7) = [odom_msg{ii,1}.twist.twist.linear.x, odom_msg{ii,1}.twist.twist.linear.y, odom_msg{ii,1}.twist.twist.linear.z];
+end
+
 %% Pre process point cloud
 cloud_sel = select(bag,"Topic","/cloud");
 
@@ -161,6 +175,7 @@ end
 % Output dir structure
 %   datasets/preprocess/<dataset_name>/
 %       |_  imu.csv
+%       |_  odom.csv
 %       |_  base_world_tf.csv
 %       |_  lidar_base_tf.csv
 %       |_  imu_base_tf.csv
@@ -180,6 +195,12 @@ mkdir(pre_process_output_dir)
 %       |_  timestamp, gyro_x, gyro_y, gyro_z, acc_x, acc_y, acc_z, quat_x, quat_y, quat_z, quat_w
 imu_filename = horzcat(pre_process_output_dir, '/imu.csv');
 writematrix(imu_data,imu_filename)
+
+%% Odom file
+%  odom.csv
+%       |_  timestamp_ms, ang_x, ang_y, ang_z, linear_x, linear_y, linear_z
+odom_filename = horzcat(pre_process_output_dir, '/odom.csv');
+writematrix(odom_data,odom_filename)
 
 %% TF files
 %   <child_parent>_tf.csv
