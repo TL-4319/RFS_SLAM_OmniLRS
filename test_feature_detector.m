@@ -23,6 +23,10 @@ tf_isaacLidar_lidar = eye(4);
 tf_isaacLidar_lidar(1:2, 1:2) = [0 -1; 1 0];
 
 
+v = VideoWriter('video.avi','Motion JPEG AVI');
+v.FrameRate = 10;
+open(v);
+
 
 for ii = 1:size(timing_data,1)
     tf_world_isaacLidar = tf_world_base(:,:,ii) * tf_base_mastMount(:,:,ii) * ...
@@ -42,12 +46,12 @@ for ii = 1:size(timing_data,1)
         cloud_in_base = apply_transform(tf_base_isaacLidar, cloud_data_lidar);
         
         % Apply keypoint detector
-        [keypoints_ind_x, keypoints_ind_y, keypoints_ind_z] = localMaximum(cloud_in_base, [30 30 1], true);
-        keypoints = cloud_in_base(:,keypoints_ind_y);
+        keypoints = detect_peak(cloud_in_base, 0.3);
 
         % Plotting
         hold off
         scatter3(keypoints(1,:), keypoints(2,:),keypoints(3,:),'filled')
+        %scatter3(cloud_in_base(1,:),cloud_in_base(2,:), cloud_in_base(3,:),ones(size(cloud_in_base,2),1));
         hold on
         scatter3(cloud_in_base(1,:),cloud_in_base(2,:), cloud_in_base(3,:),ones(size(cloud_in_base,2),1));
         xlabel('X')
@@ -56,5 +60,8 @@ for ii = 1:size(timing_data,1)
         axis equal
         drawnow
         grid on
+        f = getframe(gcf);
+        writeVideo(v,f);
     end
 end
+close(v);
