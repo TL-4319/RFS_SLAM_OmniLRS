@@ -43,17 +43,23 @@ for ii = 1:size(timing_data,1)
         cloud_data_lidar = transpose(readmatrix(horzcat(dataset_path,cloud_filename)));
 
         % Transform the cloud to match robot pose
-        cloud_in_base = apply_transform(tf_base_isaacLidar, cloud_data_lidar);
+
+        
+        %cloud_in_base = apply_transform(tf_base_isaacLidar, cloud_data_lidar);
+        tf_base_isaacLidar_no_trans = tf_base_isaacLidar;
+        tf_base_isaacLidar_no_trans(1:3,4) = [0;0;0];
+        cloud_in_base = apply_transform(tf_base_isaacLidar_no_trans, cloud_data_lidar);
         
         % Apply keypoint detector
-        keypoints = detect_peak(cloud_in_base, 0.3);
+        %[cloud_in_base, keypoints] = detect_peak(cloud_in_base, 0.1, 7);
+        [cloud_in_base, keypoints] = detect_crater(cloud_in_base, 50, 15);
 
         % Plotting
         hold off
         scatter3(keypoints(1,:), keypoints(2,:),keypoints(3,:),'filled')
-        %scatter3(cloud_in_base(1,:),cloud_in_base(2,:), cloud_in_base(3,:),ones(size(cloud_in_base,2),1));
+        %scatter3(cloud_in_base(1,:),cloud_in_base(2,:), cloud_in_base(3,:),2 * ones(size(cloud_in_base,2),1));
         hold on
-        scatter3(cloud_in_base(1,:),cloud_in_base(2,:), cloud_in_base(3,:),ones(size(cloud_in_base,2),1));
+        scatter3(cloud_in_base(1,:),cloud_in_base(2,:), cloud_in_base(3,:),2 * ones(size(cloud_in_base,2),1));
         xlabel('X')
         ylabel('Y')
         zlabel('Z')
