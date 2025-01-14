@@ -52,7 +52,7 @@ for ii = 1:size(timing_data,1)
         
         % Apply keypoint detector
         %[cloud_in_base, keypoints] = detect_peak(cloud_in_base, 0.1, 7);
-        [cloud_in_base, keypoints] = detect_crater(cloud_in_base, 50, 15);
+        [cloud_in_base, keypoints] = detect_crater(cloud_in_base, 50, 10, 0.99,7);
 
         % Plotting
         hold off
@@ -63,11 +63,13 @@ for ii = 1:size(timing_data,1)
         xlabel('X')
         ylabel('Y')
         zlabel('Z')
+        grid on
+        view([0 90])
         axis equal
         drawnow
-        grid on
-        f = getframe(gcf);
-        writeVideo(v,f);
+        
+        %f = getframe(gcf);
+        %writeVideo(v,f);
     end
 end
 close(v);
