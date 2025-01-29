@@ -7,7 +7,8 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
         dist_from_sensor = (input_cloud(1,:).^2 + input_cloud(2,:).^2).^0.5;
         filtered_cloud = input_cloud(:,find(dist_from_sensor< range_limit));
     end
-    
+    min_Y = min(filtered_cloud(2,:));
+
     % Find normal
     filterCloud = pointCloud(filtered_cloud');
     normals = pcnormals(filterCloud,15);
@@ -36,11 +37,15 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
         back_centroid = mean(current_cluster,2);
         dist_to_back_centroid = norm(back_centroid);
         unit_to_centroid = normalize(back_centroid',2,'norm');
-        dist_sample = ray_trace_step * dist_to_back_centroid;
+        dist_sample_step = (1-ray_trace_step) * dist_to_back_centroid;
+        dist_sample = dist_to_back_centroid;
         prev_gap = 0;
+        color = 'r';
         iter = 1;
+
+        
         % Ray cast from backwall toward the sensor
-        while iter < 1000
+        while iter < 100
             % For a vertical ray to intersect with data, there exist
             % pointcloud within XY distance thresshold from current sample
             % point
@@ -48,18 +53,57 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
             sample_XY = sample_along_ray(1:2);
             XY_dist_squared = filtered_cloud_XY' - sample_XY;
             dist_squared = XY_dist_squared(:,1).^2 + XY_dist_squared(:,2).^2;
-            num_point_intersect = sum(dist_squared < 0.05^2);
-            
-            % Quick why to reject false detection due to pointcloud
-            % sparesity
-            if iter < 4 && num_point_intersect == 0
+            dist_thres = (dist_sample*0.02);
+            num_point_intersect = sum(dist_squared < dist_thres^2);
+                
+            % Min range check
+            if sample_XY(2) < min_Y
                 break
             end
 
             % When newly encouter data gap
             if  prev_gap == 0 && num_point_intersect == 0
                 prev_gap = 1;
+                color = 'g';
             end
+
+            if prev_gap == 1 && num_point_intersect > 0
+                color = 'r';
+            end
+
+            % figure(3)
+            % scatter3(filtered_cloud(1,:), filtered_cloud(2,:),filtered_cloud(3,:),2 * ones(size(filtered_cloud)),"blue",'filled')
+            % hold on
+            % h = gca;
+            % scatter3(back_centroid(1,:), back_centroid(2,:), back_centroid(3,:), 5, "black",'filled')
+            % scatter3(current_cluster(1,:), current_cluster(2,:),current_cluster(3,:),100 * ones(size(current_cluster)),"blue",'filled')
+            % plot3([sample_XY(1), sample_XY(1)],[sample_XY(2), sample_XY(2)], h.ZLim, color,'LineWidth',2)
+            % axis equal
+            % scatter3(0,0,0)
+            % if size(peaks_cloud,1) > 0
+            %    scatter3(peaks_cloud(1,:),peaks_cloud(2,:), peaks_cloud(3,:), 100 * ones(size(peaks_cloud)),"red",'filled')
+            % end 
+            % hold off
+            
+            % Break if point intersected by ray is within a cluster that is
+            % not the current cluster (Handle shadow by positive object)
+            % point_interstect = filtered_cloud(:,dist_squared < dist_thres^2);
+            % for jj = 1:num_cluster
+            %     if jj == ii
+            %         continue
+            %     end
+            %     inclusion_cluster = normal_check_cloud(:,labels == jj);
+            %     is_in_inclusion = ismember(point_interstect', inclusion_cluster',"rows");
+            %     if any(is_in_inclusion)
+            %         break
+            %     end
+            % 
+            % end
+            
+            
+            
+            
+
 
             % When encouter data after a gap. Front crater rim
             if prev_gap == 1 && num_point_intersect > 0
@@ -87,29 +131,13 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
                 
                 % Output
                 peaks_cloud = horzcat(peaks_cloud, current_rough_center);
+                %peaks_cloud = horzcat(peaks_cloud, refine_center);
                 break
             end
-            dist_sample = dist_sample * ray_trace_step;
+            dist_sample = dist_sample - dist_sample_step;
             iter = iter + 1;
         end      
 
     end
-
-    % x = filterCloud.Location(1:1:end,1);
-    % y = filterCloud.Location(1:1:end,2);
-    % z = filterCloud.Location(1:1:end,3);
-    % u = normals(1:1:end,1);
-    % v = normals(1:1:end,2);
-    % w = normals(1:1:end,3);
-    % 
-    % figure()
-    % scatter3(filtered_cloud(1,:), filtered_cloud(2,:),filtered_cloud(3,:),1 * ones(size(filtered_cloud)),"blue",'filled')
-    % hold on
-    % %quiver3(x,y,z,u,v,w);
-    % scatter3(normal_check_cloud(1,:), normal_check_cloud(2,:),normal_check_cloud(3,:),20 * ones(size(normal_check_cloud)),"blue",'filled')
-    % scatter3(crater_front(1,:), crater_front(2,:),crater_front(3,:),20 * ones(size(crater_front)),"red",'filled')
-    % scatter3(0,0,0)
-    % hold off
-    % axis equal
 
 end
