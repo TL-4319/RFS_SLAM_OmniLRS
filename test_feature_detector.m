@@ -76,8 +76,8 @@ for ii = 1:size(timing_data,1)
         %axis equal
         drawnow
         
-        f = getframe(gcf);
-        writeVideo(v,f);
+        %f = getframe(gcf);
+        %writeVideo(v,f);
     end
 end
 close(v);
