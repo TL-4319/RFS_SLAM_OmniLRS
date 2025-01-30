@@ -19,9 +19,8 @@ load ('dataset/straight.mat');
 % For cartesian model, meas_vector = [x, y, z]'. 
 % For range-bearing-elevation, meas_vector = [range_m, bearing_rad, elevation_rad]', 
 sensor_params.meas_model = 'range-bearing-elevation'; %[cartesian, range-bearing-elevation]
-sensor_params.FOV_bound = dataset.scan_pattern.FOV_bounds;
-sensor_params.HFOV = deg2rad(70);
-sensor_params.VFOV = deg2rad(30);
+sensor_params.HFOV = dataset.scan_pattern.FOV_bounds(1,:);
+sensor_params.VFOV = dataset.scan_pattern.FOV_bounds(2:3,:);
 sensor_params.max_range = 15;
 sensor_params.min_range = 0.4;
 sensor_params.detect_prob = 0.95;
