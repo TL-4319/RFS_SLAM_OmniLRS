@@ -109,7 +109,7 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
 
     for kk = 2:size(time_vec,2) 
         %% Get current measurements and reproject for viz if measurement avail
-        meas_avail = dataset.lidar_avail(kk)==1;
+        meas_avail = dataset.lidar_avail(kk);
         
         if meas_avail
             cur_meas = meas_table{sensor_time_ind,1};
@@ -118,7 +118,7 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
             meas_reprojected = reproject_meas(sensor_pos, sensor_quat,...
                 cur_meas, sensor_params);
 
-            if sensor_time_ind < size(sensor_time_vec,2)
+            if sensor_time_ind < size(sensor_time_vec,1)
                 sensor_time_ind = sensor_time_ind + 1;
             end
         end
@@ -245,10 +245,6 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
         set(gca, 'Zdir', 'reverse')
         set(gca, 'Ydir', 'reverse')
         grid on
-        scatter3(truth.cummulative_landmark_in_FOV{end,1}(1,:),...
-            truth.cummulative_landmark_in_FOV{end,1}(2,:),...
-            truth.cummulative_landmark_in_FOV{end,1}(3,:),...
-            ones(size(truth.cummulative_landmark_in_FOV{end,1},2),1) * 50,'k')
         
         scatter3(meas_reprojected(1,:), meas_reprojected(2,:), meas_reprojected(3,:),...
             ones(size(meas_reprojected,2),1) * 50,'b*');
@@ -256,14 +252,16 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
         scatter3(map_est(1,:), map_est(2,:), map_est(3,:),...
             ones(size(map_est,2),1) * 10,'r+')
 
-        %plot_3D_phd(map_est_struct, 100, 0.2, 1, 2)
+        plot_3D_phd(map_est_struct, 1, 0.2, 1, 2)
         xlabel("X (m)");
         ylabel("Y (m)");
         zlabel("Z (m)");
         axis equal;
-        xlim([min(truth.cummulative_landmark_in_FOV{end,1}(1,:) - 10), max(truth.cummulative_landmark_in_FOV{end,1}(1,:) + 10)])
-        ylim([min(truth.cummulative_landmark_in_FOV{end,1}(2,:) - 10), max(truth.cummulative_landmark_in_FOV{end,1}(2,:) + 10)])
-        zlim([-2 2])
+        %xlim([min(truth.cummulative_landmark_in_FOV{end,1}(1,:) - 10), max(truth.cummulative_landmark_in_FOV{end,1}(1,:) + 10)])
+        %ylim([min(truth.cummulative_landmark_in_FOV{end,1}(2,:) - 10), max(truth.cummulative_landmark_in_FOV{end,1}(2,:) + 10)])
+        zlim([-3 3])
+        xlim([0 30])
+        ylim([-15 15])
         title_str = sprintf("Index = %d. t = %f", kk,time_vec(kk));
         
         %colorbar

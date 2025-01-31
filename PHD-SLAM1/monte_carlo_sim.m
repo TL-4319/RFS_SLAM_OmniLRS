@@ -3,7 +3,7 @@ clear;
 clc;
 
 % Define number of MC runs
-num_run = 1;
+num_run = 50;
 
 % Visualization
 draw = false;
@@ -37,7 +37,7 @@ sensor_params.clutter_density = sensor_params.avg_num_clutter / ...
 
 %% Define odometry configurations 
 % Motion covariance = [cov_x, cov_y, cov_z, cov_phi, cov_theta, cov_psi]
-odom_params.motion_sigma = [0.5; 0.5; 0; 0.001; 0.001; 0.5]; 
+odom_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.5]; 
 
 %% Defind filter parameters
 % Detector type
@@ -50,14 +50,14 @@ filter_params.sensor.measurement_std = [0.1, 0.05, 0.05];
 filter_params.sensor.avg_num_clutter = 5;
 
 % Particle filter params
-filter_params.num_particle = 1;
+filter_params.num_particle = 50;
 filter_params.resample_threshold = 0.1; % Percentage of num_particle for resample to trigger
 filter_params.likelihood_method = 'single-cluster'; %['empty', 'single-feature, 'single-cluster']
 
 % Motion covariance = [cov_x, cov_y, cov_z, cov_phi, cov_theta, cov_psi]
 % For 2D, cov_z, cov_phi and cov_theta = 0
-filter_params.motion_model = 'truth'; % [odometry, random-walk, truth]
-filter_params.motion_sigma = [0.5; 0.5; 0; 0.001; 0.001; 0.5];
+filter_params.motion_model = 'odometry'; % [odometry, random-walk, truth]
+filter_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.5];
 
 % Map PHD config
 
