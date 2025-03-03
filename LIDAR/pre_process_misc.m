@@ -3,10 +3,14 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'straight_turn_straight';
+dataset_name = 'straight';
 
-path_to_folder = horzcat('datasets/raw/', dataset_name);
+path_to_folder = horzcat('../datasets/raw/lidar/', dataset_name);
 bag = ros2bagreader(path_to_folder);
+
+% Standard deviation
+lidar_noise.angular_deg = 0.0;
+lidar_noise.range_m = 0.05;
 
 %% Get imu data and convert to csv
 imu_sel = select(bag,"Topic","/imu");
@@ -126,6 +130,8 @@ cloud_msg = readMessages(cloud_sel);
 
 cloud_data = cell(cloud_sel.NumMessages,1);
 
+noisy_cloud_data = cloud_data;
+
 cloud_timestamps = zeros(cloud_sel.NumMessages,1);
 
 for ii = 1:cloud_sel.NumMessages
@@ -149,7 +155,12 @@ for ii = 1:cloud_sel.NumMessages
             cur_data(jj * point_step + 10), cur_data(jj * point_step + 11),...
             cur_data(jj * point_step + 12)],"single");
     end
+    % Add noise
+    point_loc_noisy = add_pc_noise(point_loc, lidar_noise);
+
     cloud_data{ii,1} = point_loc;
+
+    noisy_cloud_data{ii,1} = point_loc_noisy;
     
 end
 
@@ -247,6 +258,14 @@ mkdir(cloud_path)
 for ii = 1:size(cloud_data,1)
     cloud_name = sprintf("%s/%d.csv",cloud_path, round(cloud_timestamps(ii)));
     writematrix(cloud_data{ii,1}, cloud_name)
+end
+
+noisy_cloud_path = horzcat(pre_process_output_dir, '/cloud_noisy');
+mkdir(noisy_cloud_path)
+
+for ii = 1:size(cloud_data,1)
+    cloud_name = sprintf("%s/%d.csv",noisy_cloud_path, round(cloud_timestamps(ii)));
+    writematrix(noisy_cloud_data{ii,1}, cloud_name)
 end
 
 %% Image data

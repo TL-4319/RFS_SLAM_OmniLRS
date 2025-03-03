@@ -41,7 +41,7 @@ odom_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.5];
 
 %% Defind filter parameters
 % Detector type
-filter_params.detector = 'crater'; %[crater, peak, combined]
+filter_params.detector = 'peak'; %[crater, peak, combined]
 
 % Sensor params exposed to filter
 filter_params.sensor = sensor_params; % Copy sensor parameter set so filter has different parameters for robust analysis
@@ -50,7 +50,7 @@ filter_params.sensor.measurement_std = [0.1, 0.05, 0.05];
 filter_params.sensor.avg_num_clutter = 5;
 
 % Particle filter params
-filter_params.num_particle = 50;
+filter_params.num_particle = 100;
 filter_params.resample_threshold = 0.1; % Percentage of num_particle for resample to trigger
 filter_params.likelihood_method = 'single-cluster'; %['empty', 'single-feature, 'single-cluster']
 
@@ -89,7 +89,7 @@ simulation.filter_params = filter_params;
 simulation.odom_params = odom_params;
 
 results = cell(num_run,1);
-file_name = strcat('../sim_result/',sprintf('sim-%s.mat', datestr(now,'yyyymmdd-HHMM')));
+file_name = strcat('sim_result/',sprintf('sim-%s.mat', datestr(now,'yyyymmdd-HHMM')));
 
 for ii = 1:num_run
     disp(ii)

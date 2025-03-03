@@ -2,17 +2,19 @@ close all
 clear
 clc
 
-addpath utils/
+addpath ../utils/
+
+use_noisy = 1;
 
 %% This script read the recorded bags and convert them to csv type files for processing
-%dataset_name = 'straight';
-dataset_name = 'straight_turn_straight';
+dataset_name = 'straight';
+%dataset_name = 'straight_turn_straight';
 
 path_to_folder = horzcat('datasets/preprocess/', dataset_name,'/');
 load("blickfeld_cube1_400_scan_pattern.mat");
 scan_pattern.FOV_bounds = deg2rad(scan_pattern.FOV_bounds);
 dataset.scan_pattern = scan_pattern;
-
+sensor_param.meas_model = 'cartesian';
 
 %% Read timing information
 timing_data = readmatrix(strcat(path_to_folder,'timing.csv'));
@@ -75,7 +77,7 @@ NED_tf_world_base_odom = NED_tf_world_base;
 dataset.pos_body_sensor = sensor_pos;
 dataset.quat_body_sensor = sensor_quat;
 
-draw = 0;
+draw = 1;
 meas_ind = 1;
 for ii = 1:size(ENU_tf_world_base,3)
     
@@ -97,7 +99,12 @@ for ii = 1:size(ENU_tf_world_base,3)
         ENU_tf_sensorMount_lidar(:,:,ii) * tf_lidar_isaacLidar * tf_isaacLidar_NED;
 
     if dataset.lidar_avail(ii) == 1
-        cloud_filename = sprintf('cloud/%d.csv',timing_data(ii,1));
+        if use_noisy == 1
+            cloud_filename = sprintf('cloud_noisy/%d.csv',timing_data(ii,1));
+        else
+            cloud_filename = sprintf('cloud/%d.csv',timing_data(ii,1));
+        end
+
         cloud_data_lidar = readmatrix(horzcat(path_to_folder,cloud_filename));
         
         cloud_data_lidar = pointCloud(cloud_data_lidar);
@@ -120,6 +127,7 @@ for ii = 1:size(ENU_tf_world_base,3)
         
         %image_dilation
         [~, peak_keypoints] = detect_peak(NED_cloud_aligned, 0.1, 15);
+        %[~, peak_keypoints] = detect_peak(NED_cloud_aligned, 0.2, 15);
         
         % Crater
         [cloud_in_base, crater_keypoints] = detect_crater(NED_cloud_aligned, 60, 10, 0.99,15);
@@ -137,9 +145,9 @@ for ii = 1:size(ENU_tf_world_base,3)
         peak_measurement_vec{meas_ind,1} = [peak_r; peak_b; peak_e];
         crater_measurement_vec{meas_ind,1} = [crater_r; crater_b; crater_e];
 
-        meas_ind = meas_ind + 1
-        %reprojected_meas1 = reproject_meas(sensor_pos, sensor_quat, peak_keypoints_sens);
-        %reprojected_meas2 = reproject_meas(sensor_pos, sensor_quat, crater_keypoints_sens);
+        meas_ind = meas_ind + 1;
+        reprojected_meas1 = reproject_meas(sensor_pos, sensor_quat, peak_keypoints_sens,sensor_param);
+        reprojected_meas2 = reproject_meas(sensor_pos, sensor_quat, crater_keypoints_sens,sensor_param);
 
         if draw == 1
             figure(1)
@@ -160,7 +168,7 @@ for ii = 1:size(ENU_tf_world_base,3)
             xlim([-5 50])
             ylim([-15 15])
             zlim([-10 2])
-            view([0 0])
+            view([0 90])
             grid on
             drawnow
         end

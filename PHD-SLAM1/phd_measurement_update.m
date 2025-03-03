@@ -35,7 +35,7 @@ phd_measurement_update (particle, GM_mu, GM_cov, GM_inten, meas, filter_params)
             sum_tau = filter_params.sensor.clutter_density + sum(tau,2);
 
             for jj = 1:num_GM
-                nu = tau(1,jj)/sum_tau;
+                  nu = tau(1,jj)/sum_tau;
                 GM_inten = horzcat(GM_inten, nu);
             end
         end %zz = 1:size(meas,2)

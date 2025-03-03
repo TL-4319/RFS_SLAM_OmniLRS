@@ -3,7 +3,7 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'straight';
+dataset_name = 'straight_stereo';
 
 path_to_folder = horzcat('../datasets/raw/opt/', dataset_name);
 bag = ros2bagreader(path_to_folder);
@@ -40,8 +40,8 @@ tf_msg = readMessages(tf_sel);
 
 tf_base_world = zeros(tf_sel.NumMessages, 8);
 tf_imu_base = tf_base_world;
-tf_lcam_base = tf_base_world;
-tf_lidar_sensor_mount = tf_base_world;
+tf_lcam_sensor_mount = tf_base_world;
+tf_rcam_sensor_mount = tf_base_world;
 tf_sensor_mount_mast_mount = tf_base_world;
 tf_mast_mount_base = tf_base_world;
 
@@ -54,8 +54,8 @@ for ii = 1:size(tf_msg{1,1}.transforms,1)
         imu_ind = ii;
     elseif strcmp (link_name ,'left_cam_link')
         lcam_ind = ii;
-    elseif strcmp(link_name, 'lidar_link')
-        lidar_ind = ii;
+    elseif strcmp(link_name, 'right_cam_link')
+        rcam_ind = ii;
     elseif strcmp(link_name, 'mast_mount_link')
         mast_mount_ind = ii;
     elseif strcmp(link_name, 'sensor_mount_link')
@@ -76,15 +76,15 @@ for ii = 1:tf_sel.NumMessages
         tf_msg{ii,1}.transforms(imu_ind).transform.rotation.x, tf_msg{ii,1}.transforms(imu_ind).transform.rotation.y, ...
         tf_msg{ii,1}.transforms(imu_ind).transform.rotation.z];
 
-    tf_lcam_base(ii,2:end) = [tf_msg{ii,1}.transforms(lcam_ind).transform.translation.x, tf_msg{ii,1}.transforms(lcam_ind).transform.translation.y,...
+    tf_lcam_sensor_mount(ii,2:end) = [tf_msg{ii,1}.transforms(lcam_ind).transform.translation.x, tf_msg{ii,1}.transforms(lcam_ind).transform.translation.y,...
         tf_msg{ii,1}.transforms(lcam_ind).transform.translation.z, tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.w, ...
         tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.x, tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.y, ...
         tf_msg{ii,1}.transforms(lcam_ind).transform.rotation.z];
         
-    tf_lidar_sensor_mount(ii,2:end) = [tf_msg{ii,1}.transforms(lidar_ind).transform.translation.x, tf_msg{ii,1}.transforms(lidar_ind).transform.translation.y,...
-        tf_msg{ii,1}.transforms(lidar_ind).transform.translation.z, tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.w, ...
-        tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.x, tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.y, ...
-        tf_msg{ii,1}.transforms(lidar_ind).transform.rotation.z];
+    tf_rcam_sensor_mount(ii,2:end) = [tf_msg{ii,1}.transforms(rcam_ind).transform.translation.x, tf_msg{ii,1}.transforms(rcam_ind).transform.translation.y,...
+        tf_msg{ii,1}.transforms(rcam_ind).transform.translation.z, tf_msg{ii,1}.transforms(rcam_ind).transform.rotation.w, ...
+        tf_msg{ii,1}.transforms(rcam_ind).transform.rotation.x, tf_msg{ii,1}.transforms(rcam_ind).transform.rotation.y, ...
+        tf_msg{ii,1}.transforms(rcam_ind).transform.rotation.z];
 
     tf_mast_mount_base(ii,2:end) = [tf_msg{ii,1}.transforms(mast_mount_ind).transform.translation.x, tf_msg{ii,1}.transforms(mast_mount_ind).transform.translation.y,...
         tf_msg{ii,1}.transforms(mast_mount_ind).transform.translation.z, tf_msg{ii,1}.transforms(mast_mount_ind).transform.rotation.w, ...
@@ -97,8 +97,8 @@ for ii = 1:tf_sel.NumMessages
         tf_msg{ii,1}.transforms(sensor_mount_ind).transform.rotation.z];
 end
 tf_imu_base(:,1) = tf_base_world(:,1);
-tf_lcam_base(:,1) = tf_base_world(:,1);
-tf_lidar_sensor_mount(:,1) = tf_base_world(:,1);
+tf_lcam_sensor_mount(:,1) = tf_base_world(:,1);
+tf_rcam_sensor_mount(:,1) = tf_base_world(:,1);
 tf_sensor_mount_mast_mount(:,1) = tf_base_world(:,1);
 tf_mast_mount_base(:,1) = tf_base_world(:,1);
 
@@ -127,10 +127,10 @@ img_msg = readMessages(img_sel);
 
 l_img_data = cell(img_sel.NumMessages,1);
 
-img_timestamps = zeros(img_sel.NumMessages,1);
+l_img_timestamps = zeros(img_sel.NumMessages,1);
 
 for ii = 1:img_sel.NumMessages
-    img_timestamps(ii) = double(img_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(img_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
+    l_img_timestamps(ii) = double(img_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(img_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
 
     cur_image = rosReadImage(img_msg{ii,1},"Encoding",img_msg{ii,1}.encoding);
     
@@ -145,14 +145,32 @@ img_msg = readMessages(img_sel);
 
 r_img_data = cell(img_sel.NumMessages,1);
 
-img_timestamps = zeros(img_sel.NumMessages,1);
+r_img_timestamps = zeros(img_sel.NumMessages,1);
 
 for ii = 1:img_sel.NumMessages
-    img_timestamps(ii) = double(img_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(img_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
+    r_img_timestamps(ii) = double(img_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(img_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
 
     cur_image = rosReadImage(img_msg{ii,1},"Encoding",img_msg{ii,1}.encoding);
     
     r_img_data{ii,1} = cur_image;
+end
+
+%% Pre process images
+img_sel = select(bag,"Topic","/depth");
+
+
+img_msg = readMessages(img_sel);
+
+depth_data = cell(img_sel.NumMessages,1);
+
+depth_timestamps = zeros(img_sel.NumMessages,1);
+
+for ii = 1:img_sel.NumMessages
+    depth_timestamps(ii) = double(img_msg{ii,1}.header.stamp.sec(1) * 1e3) + double(img_msg{ii,1}.header.stamp.nanosec(1) * 1e-6);
+
+    cur_image = rosReadImage(img_msg{ii,1},"Encoding",img_msg{ii,1}.encoding);
+    
+    depth_data{ii,1} = cur_image;
 end
 
 %% Write datas from ROS bag to cvs types
@@ -170,7 +188,7 @@ end
 %       |_  r_image/
 %               |_ <timestamp>.png
 %               |_      ...    
-pre_process_output_dir = horzcat('datasets/preprocess/opt/', dataset_name);
+pre_process_output_dir = horzcat('../datasets/preprocess/opt/', dataset_name);
 [~,~] = rmdir(pre_process_output_dir,'s');
 mkdir(pre_process_output_dir)
 
@@ -179,8 +197,8 @@ mkdir(pre_process_output_dir)
 %       |_  timestamp_ms, lidar_avail, img_avail
 timing_data = zeros(size(imu_data,1),3);
 timing_data(:,1) = imu_data(:,1);
-timing_data(:,2) = ismember(imu_data(:,1),cloud_timestamps);
-timing_data(:,3) = ismember(imu_data(:,1),img_timestamps);
+%timing_data(:,2) = ismember(imu_data(:,1),cloud_timestamps);
+timing_data(:,3) = ismember(imu_data(:,1),l_img_timestamps);
 
 timing_filename = horzcat(pre_process_output_dir, '/timing.csv');
 writematrix(timing_data, timing_filename)
@@ -214,7 +232,10 @@ sensor_mount_mast_mount_filename = horzcat(pre_process_output_dir,'/sensor_mount
 writematrix(tf_sensor_mount_mast_mount, sensor_mount_mast_mount_filename)
 
 lcam_base_filename = horzcat(pre_process_output_dir,'/lcam_base_tf.csv');
-writematrix(tf_lcam_base, lcam_base_filename)
+writematrix(tf_lcam_sensor_mount, lcam_base_filename)
+
+rcam_base_filename = horzcat(pre_process_output_dir,'/rcam_base_tf.csv');
+writematrix(tf_rcam_sensor_mount, lcam_base_filename)
 
 
 %% Image data
@@ -222,14 +243,17 @@ writematrix(tf_lcam_base, lcam_base_filename)
 
 l_img_path = horzcat(pre_process_output_dir, '/l_image');
 r_img_path = horzcat(pre_process_output_dir, '/r_image');
+depth_path = horzcat(pre_process_output_dir, '/depth');
 mkdir(l_img_path)
 mkdir(r_img_path)
-
-parfor ii = 1:size(img_data,1)
-    img_name = sprintf("%s/%d.png",l_img_path, round(img_timestamps(ii)));
+mkdir(depth_path)
+parfor ii = 1:size(l_img_data,1)
+    img_name = sprintf("%s/%d.png",l_img_path, round(l_img_timestamps(ii)));
     imwrite(l_img_data{ii,1}, img_name)
-    img_name = sprintf("%s/%d.png",r_img_path, round(img_timestamps(ii)));
+    img_name = sprintf("%s/%d.png",r_img_path, round(l_img_timestamps(ii)));
     imwrite(r_img_data{ii,1}, img_name)
+    img_name = sprintf("%s/%d.csv",depth_path, round(l_img_timestamps(ii)));
+    writematrix(depth_data{ii,1}, img_name)
 end
 
 % avg_framerate = 1/mean(diff(img_timestamps) * 1e-3);

@@ -10,7 +10,7 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
     min_Y = min(filtered_cloud(2,:));
 
     % Find normal
-    filterCloud = pointCloud(filtered_cloud');
+    filterCloud = pointCloud(filtered_cloud','Color','white');
     normals = pcnormals(filterCloud,15);
     
     % Find points where normal points toward sensor at [0, 0, 0]
@@ -22,15 +22,12 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
     % Cluster
     normalCloud = pointCloud(normal_check_cloud');
     [labels, num_cluster] = pcsegdist(normalCloud,0.2,"NumClusterPoints",min_point_per_cluster);
-
-    % figure(1)
-    % pcshow(normalCloud.Location, labels,"MarkerSize",10)
-    % colormap(hsv(num_cluster))
+    
     
     % Crater detectiom for each back wall cluster
     filtered_cloud_XY = filtered_cloud(1:2,:);
     peaks_cloud = [];
-    for ii = 1:num_cluster
+    for ii = 7:num_cluster
         % Detect front of crater using ray casting
         current_cluster = normal_check_cloud(:,labels == ii); % Get back wall cluster
         current_cluster_normal = normals(labels == ii,:); % Get normal
@@ -42,8 +39,8 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
         prev_gap = 0;
         color = 'r';
         iter = 1;
+       
 
-        
         % Ray cast from backwall toward the sensor
         while iter < 100
             % For a vertical ray to intersect with data, there exist
@@ -128,6 +125,8 @@ function [filtered_cloud, peaks_cloud] = detect_crater(input_cloud, coarse_norma
                 [~,far_ind] = max(refine_dist);
                 crater_back = refine_cluster(:,far_ind);
                 refine_center = (crater_back + crater_front)./2;
+                
+              
                 
                 % Output
                 peaks_cloud = horzcat(peaks_cloud, current_rough_center);
