@@ -4,11 +4,20 @@ clear
 
 addpath ../utils/
 
-detector_str = "detect_crater(cloud_in_base, 70, 10, 0.99,15)";
+coarse_ang_array =10:5:85;
+min_num_clust = 10;
+ray_trace_step = 0.99;
+max_range = 15;
+
+for kk = 1:size(coarse_ang_array,2)
+coarse_ang = coarse_ang_array(kk);
+
+detector_str = sprintf("detect_crater(cloud_in_base, %d, %d, %.2f,%d)",coarse_ang, min_num_clust, ray_trace_step, max_range);
 v_name = strcat("sts_noisy_",detector_str,".avi");
+f_name = strcat("sts_noisy_",detector_str,".mat");
 
 %% Get tf of base and lidar
-dataset_path = 'datasets/preprocess/straight/';
+dataset_path = 'datasets/preprocess/straight_turn_straight/';
 timing_data = readmatrix(horzcat(dataset_path,'timing.csv'));
 dt_s = mean(diff(timing_data(:,1)) * 1e-3);
 
@@ -33,7 +42,13 @@ tf_isaacLidar_lidar(1:2, 1:2) = [0 -1; 1 0];
 
  f = cell(size(timing_data,1),1);
 
+ num_meas = sum(timing_data(:,2));
+
+ meas_cell = cell(num_meas,1);
+ meas_ind = 1;
+
 for ii = 1:size(timing_data,1)
+
     tf_world_isaacLidar = tf_world_base(:,:,ii) * tf_base_mastMount(:,:,ii) * ...
         tf_mastMount_sensorMount(:,:,ii) * tf_sensorMount_lidar(:,:,ii) * tf_isaacLidar_lidar;
 
@@ -62,17 +77,23 @@ for ii = 1:size(timing_data,1)
         
         % Apply keypoint detector
         %[cloud_in_base, keypoints] = detect_peak(cloud_in_base, 0.1, 15);
-        [cloud_in_base, keypoints] = detect_crater(cloud_in_base, 70, 10, 0.99,15);
+        [cloud_in_base, keypoints] = detect_crater(cloud_in_base, coarse_ang, min_num_clust, ray_trace_step,max_range);
+        
+        meas_cell{meas_ind,1} = keypoints;
+        meas_ind = meas_ind+1;
 
         % Plotting
         figure(1)
         %figure(1,"Position",[1,1,700,400])
         hold off
         cloudInBase = pointCloud(cloud_in_base',"Color",'white');
-        Keypoints = pointCloud(keypoints','Color','red');
+        
         pcshow(cloudInBase,"MarkerSize",10,'AxesVisibility','off')
-        hold on
-        pcshow(Keypoints,'MarkerSize',100,'AxesVisibility','off')
+        if size(keypoints,2) > 0
+            Keypoints = pointCloud(keypoints','Color','red');
+            hold on
+            pcshow(Keypoints,'MarkerSize',100,'AxesVisibility','off')
+        end 
         xlabel('X (m)')
         ylabel('Y (m)')
         zlabel('Z (m)')
@@ -98,3 +119,7 @@ for ii = 1:size(timing_data,1)
     end
 end
 close(v);
+
+save(f_name, "meas_cell","-v7.3")
+
+end

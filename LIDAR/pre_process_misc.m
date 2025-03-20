@@ -3,7 +3,7 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'straight';
+dataset_name = 'straight_turn_straight';
 
 path_to_folder = horzcat('../datasets/raw/lidar/', dataset_name);
 bag = ros2bagreader(path_to_folder);
