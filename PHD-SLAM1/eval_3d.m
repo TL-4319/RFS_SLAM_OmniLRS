@@ -8,7 +8,7 @@ addpath('../util/')
 % Parse simulation
 %[file,location] = uigetfile;
 %load (strcat(location,file));
-load("sim_result/sim-20250130-2115-crater.mat");
+load("sim_result/sim-20250204-1627-crater-sts.mat");
 
 %% 
 time_vec = simulation.truth.time_vec;
@@ -79,7 +79,7 @@ error1.compute_time = avg_compute_time;
 
 
 %%
-load("sim_result/sim-20250131-0729-peak.mat");
+load("sim_result/sim-20250204-0815-peak-sts.mat");
 
 %% 
 time_vec = simulation.truth.time_vec;
@@ -149,7 +149,7 @@ error2.dist_travel = dist_travel;
 error2.compute_time = avg_compute_time;
 
 %%
-load("sim_result/sim-20250131-0850-comb.mat");
+load("sim_result/sim-20250203-0837-combined-sts.mat");
 
 %% 
 time_vec = simulation.truth.time_vec;

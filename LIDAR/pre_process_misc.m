@@ -3,7 +3,7 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'straight_turn_straight';
+dataset_name = '20250324_omnilrs';
 
 path_to_folder = horzcat('../datasets/raw/lidar/', dataset_name);
 bag = ros2bagreader(path_to_folder);
@@ -107,7 +107,7 @@ tf_sensor_mount_mast_mount(:,1) = tf_base_world(:,1);
 tf_mast_mount_base(:,1) = tf_base_world(:,1);
 
 % Subtract world->base translation with initial pos 
-tf_base_world(:,2:4) = tf_base_world(:,2:4) - tf_base_world(1,2:4);
+%tf_base_world(:,2:4) = tf_base_world(:,2:4) - tf_base_world(1,2:4);
 
 %% Pre process odom messages
 odom_sel = select(bag,"Topic","/odom");
