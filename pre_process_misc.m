@@ -3,9 +3,9 @@ clear
 clc
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = '20250324_omnilrs';
+dataset_name = 'rosbag2_2025_08_06-12_14_49';
 
-path_to_folder = horzcat('../datasets/raw/lidar/', dataset_name);
+path_to_folder = horzcat('datasets/raw/lidar/', dataset_name);
 bag = ros2bagreader(path_to_folder);
 
 % Standard deviation
@@ -130,8 +130,6 @@ cloud_msg = readMessages(cloud_sel);
 
 cloud_data = cell(cloud_sel.NumMessages,1);
 
-noisy_cloud_data = cloud_data;
-
 cloud_timestamps = zeros(cloud_sel.NumMessages,1);
 
 for ii = 1:cloud_sel.NumMessages
@@ -155,13 +153,9 @@ for ii = 1:cloud_sel.NumMessages
             cur_data(jj * point_step + 10), cur_data(jj * point_step + 11),...
             cur_data(jj * point_step + 12)],"single");
     end
-    % Add noise
-    point_loc_noisy = add_pc_noise(point_loc, lidar_noise);
 
     cloud_data{ii,1} = point_loc;
 
-    noisy_cloud_data{ii,1} = point_loc_noisy;
-    
 end
 
 %% Pre process images
@@ -198,7 +192,7 @@ end
 %       |_  image/
 %               |_ <timestamp>.png
 %               |_      ...       
-pre_process_output_dir = horzcat('datasets/preprocess/', dataset_name);
+pre_process_output_dir = horzcat('datasets/preprocess/lidar/', dataset_name);
 [~,~] = rmdir(pre_process_output_dir,'s');
 mkdir(pre_process_output_dir)
 
@@ -260,31 +254,24 @@ for ii = 1:size(cloud_data,1)
     writematrix(cloud_data{ii,1}, cloud_name)
 end
 
-noisy_cloud_path = horzcat(pre_process_output_dir, '/cloud_noisy');
-mkdir(noisy_cloud_path)
 
-for ii = 1:size(cloud_data,1)
-    cloud_name = sprintf("%s/%d.csv",noisy_cloud_path, round(cloud_timestamps(ii)));
-    writematrix(noisy_cloud_data{ii,1}, cloud_name)
-end
-
-%% Image data
-%   image/<timestamp_ms>.png
-
-img_path = horzcat(pre_process_output_dir, '/image');
-mkdir(img_path)
-
-parfor ii = 1:size(img_data,1)
-    img_name = sprintf("%s/%d.png",img_path, round(img_timestamps(ii)));
-    imwrite(img_data{ii,1}, img_name)
-end
-
-avg_framerate = 1/mean(diff(img_timestamps) * 1e-3);
-video_filename = horzcat(pre_process_output_dir, '/video.avi');
-v = VideoWriter(video_filename,'Motion JPEG AVI');
-v.FrameRate = avg_framerate;
-open(v);
-for ii = 1:size(img_data,1)
-    writeVideo(v,img_data{ii,1});
-end
-close(v);
+% %% Image data
+% %   image/<timestamp_ms>.png
+% 
+% img_path = horzcat(pre_process_output_dir, '/image');
+% mkdir(img_path)
+% 
+% parfor ii = 1:size(img_data,1)
+%     img_name = sprintf("%s/%d.png",img_path, round(img_timestamps(ii)));
+%     imwrite(img_data{ii,1}, img_name)
+% end
+% 
+% avg_framerate = 1/mean(diff(img_timestamps) * 1e-3);
+% video_filename = horzcat(pre_process_output_dir, '/video.avi');
+% v = VideoWriter(video_filename,'Motion JPEG AVI');
+% v.FrameRate = avg_framerate;
+% open(v);
+% for ii = 1:size(img_data,1)
+%     writeVideo(v,img_data{ii,1});
+% end
+% close(v);

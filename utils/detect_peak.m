@@ -24,9 +24,9 @@ function [filtered_cloud, peaks_cloud] = detect_peak(input_cloud, res_scale, ran
         ind_in_window = find(dist_from_point<window_size);
         heights_in_window = filtered_cloud(3,ind_in_window);
 
-        if cur_point(3) == max(heights_in_window)
+        if cur_point(3) == min(heights_in_window)
             is_peak(ii) = 1;
-        elseif cur_point(3) == min(heights_in_window)
+        elseif cur_point(3) == max(heights_in_window)
             is_peak(ii) = 0;
         end
     end

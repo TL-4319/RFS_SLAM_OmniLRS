@@ -2,15 +2,17 @@ close all
 clear
 clc
 
-addpath ../utils/
+addpath utils/
 
-use_noisy = 1;
+use_noisy = 0;
+lidar_noise.range_m = 0.02;
+lidar_noise.angular_deg = 0;
 
 %% This script read the recorded bags and convert them to csv type files for processing
-dataset_name = 'straight';
+dataset_name = 'rosbag2_2025_08_06-11_42_01';
 %dataset_name = 'straight_turn_straight';
 
-path_to_folder = horzcat('datasets/preprocess/', dataset_name,'/');
+path_to_folder = horzcat('datasets/preprocess/lidar/', dataset_name,'/');
 load("blickfeld_cube1_400_scan_pattern.mat");
 scan_pattern.FOV_bounds = deg2rad(scan_pattern.FOV_bounds);
 dataset.scan_pattern = scan_pattern;
@@ -99,18 +101,22 @@ for ii = 1:size(ENU_tf_world_base,3)
         ENU_tf_sensorMount_lidar(:,:,ii) * tf_lidar_isaacLidar * tf_isaacLidar_NED;
 
     if dataset.lidar_avail(ii) == 1
-        if use_noisy == 1
-            cloud_filename = sprintf('cloud_noisy/%d.csv',timing_data(ii,1));
-        else
-            cloud_filename = sprintf('cloud/%d.csv',timing_data(ii,1));
-        end
+        cloud_filename = sprintf('cloud/%d.csv',timing_data(ii,1));
 
         cloud_data_lidar = readmatrix(horzcat(path_to_folder,cloud_filename));
+
+        cloud_data_lidar = add_pc_noise(cloud_data_lidar, lidar_noise);
         
         cloud_data_lidar = pointCloud(cloud_data_lidar);
         
+        
+        
         % Downsample
         cloud_data_lidar = pcdownsample(cloud_data_lidar,"gridAverage",0.08);
+        points = detectISSFeatures(cloud_data_lidar,Radius=2,NonMaxRadius=1);
+        pcshow(cloud_data_lidar)
+        hold on
+        plot3(points(:,1),points(:,2),points(:,3),"pentagram", MarkerSize=5,MarkerFaceColor=[1 0.6 0.6],Color="red")
         cloud_data_lidar = cloud_data_lidar.Location';
         
         % Rotate to align with gravity vector
