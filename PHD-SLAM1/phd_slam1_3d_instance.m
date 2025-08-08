@@ -1,5 +1,6 @@
 function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_params, filter_params, draw)
     addpath '../utils/'
+    path_to_lidar = strcat('../datasets/preprocess/lidar/',dataset.name,'/cloud/');
     %rng(420)
     time_vec = dataset.time_vec';
     dt = time_vec(2) - time_vec(1);
@@ -57,26 +58,14 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
     disp('done')
     clc;
 
-    %% Get appropriate measurement table
-    if strcmp(filter_params.detector,'crater')
-        meas_table = dataset.crater_meas_table;
-    elseif strcmp(filter_params.detector,'peak')
-        meas_table = dataset.peak_meas_table;
-    elseif strcmp(filter_params.detector,'combined')
-        meas_table = dataset.crater_meas_table;
-        for ii = 1:size(meas_table,1)
-            meas_table{ii,1} = horzcat(meas_table{ii,1},dataset.peak_meas_table{ii,1});
-        end
-    else
-        error_msg = strcat(filter_params.detector, " dectector is not supported");
-        error(error_msg);
-    end
-
     %% Pre allocate datas for estimation
     est.pos = truth.pos;
     est.quat = truth.quat;
     est.map_est = cell(size(sensor_time_vec,2),1);
     est.compute_time = zeros(size(time_vec,2),1);
+
+    %% Write code to run detector and return RBE
+    rbe = run_detect(cloud_noise, param); %% TODO
     
     %% Initialize filter
     if strcmp(sensor_params.meas_model,'cartesian')

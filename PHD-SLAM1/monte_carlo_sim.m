@@ -12,7 +12,7 @@ draw = false;
 addpath('../utils/')
 
 % Select dataset
-load ('dataset/straight.mat');
+load ('../datasets/preprocess/lidar/rosbag2_2025_08_06-11_42_01/preproc.mat');
 
 
 %% Define sensor parameters to be used to generate measurements
@@ -21,11 +21,11 @@ load ('dataset/straight.mat');
 sensor_params.meas_model = 'range-bearing-elevation'; %[cartesian, range-bearing-elevation]
 sensor_params.HFOV = dataset.scan_pattern.FOV_bounds(1,:);
 sensor_params.VFOV = dataset.scan_pattern.FOV_bounds(2:3,:);
-sensor_params.max_range = 15;
+sensor_params.max_range = 30;
 sensor_params.min_range = 0.4;
-sensor_params.detect_prob = 0.95;
+sensor_params.detect_prob = 0.5;
 sensor_params.sensor_rate = 0.8;
-sensor_params.measurement_std = [0.1, 0.01, 0.01];  
+sensor_params.measurement_std = [0.5, 0.03, 0.03];  
 sensor_params.avg_num_clutter = 5;
 sensor_params.pos_body_sensor = dataset.pos_body_sensor;
 sensor_params.quat_body_sensor = dataset.quat_body_sensor;
@@ -37,7 +37,7 @@ sensor_params.clutter_density = sensor_params.avg_num_clutter / ...
 
 %% Define odometry configurations 
 % Motion covariance = [cov_x, cov_y, cov_z, cov_phi, cov_theta, cov_psi]
-odom_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.5]; 
+odom_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.1]; 
 
 %% Defind filter parameters
 % Detector type
@@ -45,8 +45,8 @@ filter_params.detector = 'peak'; %[crater, peak, combined]
 
 % Sensor params exposed to filter
 filter_params.sensor = sensor_params; % Copy sensor parameter set so filter has different parameters for robust analysis
-filter_params.sensor.detect_prob = 0.7;
-filter_params.sensor.measurement_std = [0.1, 0.05, 0.05];
+filter_params.sensor.detect_prob = 0.5;
+filter_params.sensor.measurement_std = [0.5, 0.03, 0.03];
 filter_params.sensor.avg_num_clutter = 5;
 
 % Particle filter params
@@ -57,7 +57,7 @@ filter_params.likelihood_method = 'single-cluster'; %['empty', 'single-feature, 
 % Motion covariance = [cov_x, cov_y, cov_z, cov_phi, cov_theta, cov_psi]
 % For 2D, cov_z, cov_phi and cov_theta = 0
 filter_params.motion_model = 'odometry'; % [odometry, random-walk, truth]
-filter_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.5];
+filter_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.1];
 
 % Map PHD config
 
@@ -68,7 +68,7 @@ filter_params.adaptive_birth_dist_thres = 1;
 filter_params.GM_inten_thres = 0.5;                % Threshold to use a component for importance weight calc and plotting
 filter_params.pruning_thres = 10^-5;
 filter_params.merge_dist = 4;
-filter_params.num_GM_cap = 5000;
+filter_params.num_GM_cap = 2000;
 filter_params.inner_filter = 'ekf';
 filter_params.map_est_method = 'exp';           % Method to extract map est. 'exp' or 'thres'
 
