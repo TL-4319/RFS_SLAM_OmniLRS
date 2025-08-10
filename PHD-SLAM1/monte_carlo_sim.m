@@ -6,7 +6,7 @@ clc;
 num_run = 50;
 
 % Visualization
-draw = false;
+draw = true;
 
 % add path to util functions. 
 addpath('../utils/')
@@ -29,6 +29,9 @@ sensor_params.measurement_std = [0.5, 0.03, 0.03];
 sensor_params.avg_num_clutter = 5;
 sensor_params.pos_body_sensor = dataset.pos_body_sensor;
 sensor_params.quat_body_sensor = dataset.quat_body_sensor;
+sensor_params.lidar_noise.range_m = 0.1;
+sensor_params.lidar_noise.angular_deg = 0.;
+sensor_params.detector = 'peak'; %[crater, peak, combined] 
 
 
 sensor_params.meas_area = 20;
@@ -38,11 +41,9 @@ sensor_params.clutter_density = sensor_params.avg_num_clutter / ...
 %% Define odometry configurations 
 % Motion covariance = [cov_x, cov_y, cov_z, cov_phi, cov_theta, cov_psi]
 odom_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.1]; 
+odom_params.freq_hz = 8;
 
 %% Defind filter parameters
-% Detector type
-filter_params.detector = 'peak'; %[crater, peak, combined]
-
 % Sensor params exposed to filter
 filter_params.sensor = sensor_params; % Copy sensor parameter set so filter has different parameters for robust analysis
 filter_params.sensor.detect_prob = 0.5;
@@ -50,13 +51,13 @@ filter_params.sensor.measurement_std = [0.5, 0.03, 0.03];
 filter_params.sensor.avg_num_clutter = 5;
 
 % Particle filter params
-filter_params.num_particle = 100;
+filter_params.num_particle = 1;
 filter_params.resample_threshold = 0.1; % Percentage of num_particle for resample to trigger
 filter_params.likelihood_method = 'single-cluster'; %['empty', 'single-feature, 'single-cluster']
 
 % Motion covariance = [cov_x, cov_y, cov_z, cov_phi, cov_theta, cov_psi]
 % For 2D, cov_z, cov_phi and cov_theta = 0
-filter_params.motion_model = 'odometry'; % [odometry, random-walk, truth]
+filter_params.motion_model = 'truth'; % [odometry, random-walk, truth]
 filter_params.motion_sigma = [0.2; 0.2; 0; 0.001; 0.001; 0.1];
 
 % Map PHD config

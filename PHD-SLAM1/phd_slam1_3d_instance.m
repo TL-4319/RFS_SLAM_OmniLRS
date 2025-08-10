@@ -1,6 +1,6 @@
 function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_params, filter_params, draw)
     addpath '../utils/'
-    path_to_lidar = strcat('../datasets/preprocess/lidar/',dataset.name,'/cloud/');
+    path_to_dataset = strcat('../datasets/preprocess/lidar/',dataset.name,'/');
     %rng(420)
     time_vec = dataset.time_vec';
     dt = time_vec(2) - time_vec(1);
@@ -13,6 +13,10 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
 
     end
 
+    %% 
+    % Find index of first measurement
+    ind_first_meas = find(dataset.lidar_avail,1,'first');
+
     %% Prepare truth data struct
     truth.pos = dataset.pos;
     truth.quat = dataset.quat;
@@ -23,37 +27,33 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
     odom.body_trans_vel = zeros(3,size(time_vec,2));
     odom.body_rot_vel = odom.body_trans_vel;
 
-    % Pre run the sim to generate map and meas data. Should help with run 
-    % time as well
+    % Pre run the sim to generate map and meas data. Downsample truth and
+    % everything else to be lower 8Hz sampling rate
     disp('Pre generate odom est, measurements and cummulative landmark map')
-    for kk = 1:size(time_vec,2)
+    for kk = ind_first_meas+1:size(time_vec,2)
         % Simulated pure odometry
-        if kk == 1
-            odom.pos(:,kk) = truth.pos(:,kk);
-            odom.quat(kk,:) = truth.quat(kk,:);
-        else
-            % Sample odometry - 3D rot but 2D motion for rover
-            body_trans_vel_sample = zeros(3,1);
-            body_rot_vel_sample = zeros(3,1);
+        % Sample odometry - 3D rot but 2D motion for rover
+        body_trans_vel_sample = zeros(3,1);
+        body_rot_vel_sample = zeros(3,1);
     
-            body_trans_vel_sample(1,1) = normrnd(0,odom_params.motion_sigma(1));
-            body_trans_vel_sample(2,1) = normrnd(0,odom_params.motion_sigma(2));
-            body_trans_vel_sample(3,1) = normrnd(0,odom_params.motion_sigma(3));
+        body_trans_vel_sample(1,1) = normrnd(0,odom_params.motion_sigma(1));
+        body_trans_vel_sample(2,1) = normrnd(0,odom_params.motion_sigma(2));
+        body_trans_vel_sample(3,1) = normrnd(0,odom_params.motion_sigma(3));
 
-            body_rot_vel_sample(1,1) = normrnd(0,odom_params.motion_sigma(4));
-            body_rot_vel_sample(2,1) = normrnd(0,odom_params.motion_sigma(5));
-            body_rot_vel_sample(3,1) = normrnd(0,odom_params.motion_sigma(6));
+        body_rot_vel_sample(1,1) = normrnd(0,odom_params.motion_sigma(4));
+        body_rot_vel_sample(2,1) = normrnd(0,odom_params.motion_sigma(5));
+        body_rot_vel_sample(3,1) = normrnd(0,odom_params.motion_sigma(6));
     
-            body_trans_vel = dataset.trans_vel_body(:,kk) + body_trans_vel_sample;
-            body_rot_vel = dataset.rot_vel_body(:,kk) + body_rot_vel_sample;
+        body_trans_vel = dataset.trans_vel_body(:,kk) + body_trans_vel_sample;
+        body_rot_vel = dataset.rot_vel_body(:,kk) + body_rot_vel_sample;
 
-            odom.body_trans_vel(:,kk) = body_trans_vel;
-            odom.body_rot_vel(:,kk) = body_rot_vel;
+        odom.body_trans_vel(:,kk) = body_trans_vel;
+        odom.body_rot_vel(:,kk) = body_rot_vel;
 
-            [odom.pos(:,kk), odom.quat(kk,:)] = ...
-                propagate_state (odom.pos(:,kk-1), odom.quat(kk-1,:),...
-                body_trans_vel, body_rot_vel, dt);
-        end
+        [odom.pos(:,kk), odom.quat(kk,:)] = ...
+            propagate_state (odom.pos(:,kk-1), odom.quat(kk-1,:),...
+            body_trans_vel, body_rot_vel, dt);
+        
     end
     disp('done')
     clc;
@@ -61,33 +61,38 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
     %% Pre allocate datas for estimation
     est.pos = truth.pos;
     est.quat = truth.quat;
-    est.map_est = cell(size(sensor_time_vec,2),1);
+    %est.map_est = cell(size(sensor_time_vec,2),1);
     est.compute_time = zeros(size(time_vec,2),1);
 
     %% Write code to run detector and return RBE
-    rbe = run_detect(cloud_noise, param); %% TODO
+    cur_lidar_ind = 1;
+    name_of_cloud = strcat(string(dataset.sensor_time_vec(cur_lidar_ind,2)),".csv");
+    cur_meas = run_cloud_detect(path_to_dataset, name_of_cloud, sensor_params,ind_first_meas); 
     
     %% Initialize filter
+
     if strcmp(sensor_params.meas_model,'cartesian')
         cur_meas = meas_table{1,1};
         % Calc sensor pose in world frame
-        [sensor_pos, sensor_quat] = get_sensor_pose(truth.pos(:,1), truth.quat(1,:), sensor_params);
+        [sensor_pos, sensor_quat] = get_sensor_pose(truth.pos(:,ind_first_meas),...
+            truth.quat(ind_first_meas,:), sensor_params);
         meas_world_frame = reproject_meas(sensor_pos,sensor_quat,cur_meas, sensor_params);
     elseif strcmp(sensor_params.meas_model,'range-bearing-elevation')
-        cur_meas = meas_table{1,1};
+
         % Calc sensor pose in world frame
-        [sensor_pos, sensor_quat] = get_sensor_pose(truth.pos(:,1), truth.quat(1,:), sensor_params);
+        [sensor_pos, sensor_quat] = get_sensor_pose(truth.pos(:,ind_first_meas), ...
+            truth.quat(ind_first_meas,:), sensor_params);
         meas_world_frame = reproject_meas(sensor_pos,sensor_quat, cur_meas, sensor_params);
     else
         error_msg = strcat(sensor_params.meas_model, " measurement model is not supported");
         error(error_msg);
     end
 
-    particles = init_phd1_particles_3D(truth.pos(:,1),...
-        truth.quat(1,:),meas_world_frame,filter_params);
+    particles = init_phd1_particles_3D(truth.pos(:,ind_first_meas),...
+        truth.quat(ind_first_meas,:),meas_world_frame,filter_params);
 
     %% Run simulation
-    sensor_time_ind = 2;
+    cur_lidar_ind = 2;
 
     if draw
         obj = VideoWriter("myvideo","Motion JPEG AVI");
@@ -96,19 +101,21 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
         open(obj);
     end
 
-    for kk = 2:size(time_vec,2) 
+    for kk = ind_first_meas:size(time_vec,2) 
         %% Get current measurements and reproject for viz if measurement avail
         meas_avail = dataset.lidar_avail(kk);
         
         if meas_avail
-            cur_meas = meas_table{sensor_time_ind,1};
+            name_of_cloud = strcat(string(dataset.sensor_time_vec(cur_lidar_ind,2)),".csv");
+            cur_meas = run_cloud_detect(path_to_dataset, ...
+                name_of_cloud, sensor_params,kk);
             [sensor_pos, sensor_quat] = get_sensor_pose(truth.pos(:,kk),...
                     truth.quat(kk),sensor_params);
             meas_reprojected = reproject_meas(sensor_pos, sensor_quat,...
                 cur_meas, sensor_params);
 
-            if sensor_time_ind < size(sensor_time_vec,1)
-                sensor_time_ind = sensor_time_ind + 1;
+            if cur_lidar_ind < size(sensor_time_vec,1)
+                cur_lidar_ind = cur_lidar_ind + 1;
             end
         end
 
@@ -208,7 +215,7 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
         est.quat(kk,:) = pose_est.quat;
         % Add zero z component for map
         map_est = vertcat(map_est_struct.feature_pos,zeros(1,size(map_est_struct.feature_pos,2)));
-        est.map_est{sensor_time_ind,1} = map_est_struct;
+        %est.map_est{sensor_time_ind,1} = map_est_struct;
         
         % Resample (if needed)
         [particles, est.num_effective_particle(kk)] = resample_particles(particles, filter_params);
@@ -249,13 +256,11 @@ function [results, truth] = phd_slam1_3d_instance(dataset, sensor_params, odom_p
         %xlim([min(truth.cummulative_landmark_in_FOV{end,1}(1,:) - 10), max(truth.cummulative_landmark_in_FOV{end,1}(1,:) + 10)])
         %ylim([min(truth.cummulative_landmark_in_FOV{end,1}(2,:) - 10), max(truth.cummulative_landmark_in_FOV{end,1}(2,:) + 10)])
         zlim([-3 3])
-        xlim([0 30])
-        ylim([-15 15])
         title_str = sprintf("Index = %d. t = %f", kk,time_vec(kk));
         
         %colorbar
         title(title_str)
-        %view(0,90)
+        view(0,90)
         drawnow
         end %draw
         

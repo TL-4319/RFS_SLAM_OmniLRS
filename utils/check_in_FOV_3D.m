@@ -11,6 +11,9 @@ function [is_in_FOV, PD_vec_multiplier] = ...
                 range > sensor.max_range ; range < sensor.min_range; ...
                 abs(landmark_elevation_from_sensor) > sensor.VFOV/2];
         is_in_FOV = ~any(temp,1);
+    elseif size(sensor.VFOV,1) > 1
+        is_in_FOV = check_in_FOV_3D_blickfeld([range;...
+            landmark_bearing_from_sensor; landmark_elevation_from_sensor],sensor);
     end
 
 
